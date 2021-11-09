@@ -1,38 +1,9 @@
-// COVID_DATA.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
 #include <iostream>
 #include <cmath>;
+#include <algorithm>;
 
 using namespace std;
 
-
-
-bool print_correlation_strength(string attributeA, string attributeB, float correlation) {
-    if (abs(correlation) > 1) {
-        cout << "Invalid correlation value. Exiting\n";
-        return -1;
-    }
-    bool possible_correlation = 1;
-    string sign = "positive";
-    if (correlation < 0) {
-        sign = "negative";
-    }
-    if (abs(correlation) > 0.7) {
-        cout << attributeA << " and " << attributeB << " have a strong " << sign << " correlation\n\n";
-    }
-    else if (abs(correlation) > 0.5) {
-        cout << attributeA << " and " << attributeB << " have a moderate " << sign << " correlation\n\n";
-    }
-    else if (abs(correlation) > 0.3) {
-        cout << attributeA << " and " << attributeB << " have a weak " << sign << " correlation\n\n";
-    }
-    else {
-        cout << attributeA << " and " << attributeB << " have little to no correlation\n\n";
-        possible_correlation = 0;
-    }
-    return possible_correlation;
-}
 
 float correlation_coefficient(double xValues[], double yValues[], int len1) {
 
@@ -81,40 +52,109 @@ int linear_regression(double xValues[], double yValues[], int len1)
     return 0;
 }
 
+bool print_correlation_strength(string attributeA, string attributeB, float correlation) {
+    if (abs(correlation) > 1) {
+        cout << "Invalid correlation value. Exiting\n";
+        return -1;
+    }
+    bool possible_correlation = 1;
+    string sign = "positive";
+    if (correlation < 0) {
+        sign = "negative";
+    }
+    if (abs(correlation) > 0.7) {
+        cout << attributeA << " and " << attributeB << " have a strong " << sign << " correlation with a value of " << correlation << "\n";
+    }
+    else if (abs(correlation) > 0.5) {
+        cout << attributeA << " and " << attributeB << " have a moderate " << sign << " correlation with a value of " << correlation << "\n";
+    }
+    else if (abs(correlation) > 0.3) {
+        cout << attributeA << " and " << attributeB << " have a weak " << sign << " correlation with a value of " << correlation << "\n";
+    }
+    else {
+        cout << attributeA << " and " << attributeB << " have little to no correlation with a value of " << correlation << "\n";
+        possible_correlation = 0;
+    }
+    return possible_correlation;
+}
+
+void print_strongest_correlation(double sorted_correlations[], int len) {
+    cout << "\n\nPrinting Strongest Postive and Negative Correlations\n";
+
+    for (int i = 0; i < 3; i++) {
+        if (i >= len) return;
+        if (sorted_correlations[i] >= 0) break;
+        cout << "Number " << i + 1 << " strongest negative correlation: " << sorted_correlations[i] << "\n";
+    }
+
+    cout << "\n";
+
+    int positive_print_num = 1;
+    for (int i = len -1; i > len - 4; i--) {
+        if (i < 0 || sorted_correlations[i] < 0) return;
+        // Improve to display the attributes each correlation is associated with 
+        cout << "Number " << positive_print_num << " strongest positive correlation: " << sorted_correlations[i] << "\n";
+        positive_print_num++;
+    }
+}
+
 
 int main()
 {
     std::cout << "Beginning Display of Analyzed Data Results\n\n";
-    // Definition of mock input arrays
-    double a[] = { 1, 2, 3 , 4, 5, 6};
-    double b[] = { 5, 0, 2, 4, 8, 12};
-    double c[] = { 20, 15, 11, 5, 7, 0 };
-    double d[] = { 22, 25, 24, 25, 23, 26 };
 
+    // Mock attribute names
     string att_a = "Vaccinations / Million";
     string att_b = "Percent of Country Generally Open"; // Expect Postive Correlation with A
     string att_c = "Deaths / Million"; // Expect Negative Correlation with A
     string att_d = "Commute Time"; // No correlation with A
 
+    // Change explicit array size declaration
+    // Definition of mock input arrays
+    const int data_len = 4;
+    double data[data_len][6] = { { 1, 2, 3 , 4, 5, 6}, { 5, 0, 2, 4, 8, 12}, { 20, 15, 11, 5, 7, 0 }, { 22, 21, 22, 21, 22, 21 }};
+    double correlationValues[(data_len) * (data_len - 1) / 2];
+    int correlationCurrIndex = 0;
+    string attributes[] = { att_a, att_b, att_c, att_d };
 
-    int len1 = sizeof(a) / sizeof(a[0]);
-    int len2 = sizeof(b) / sizeof(b[0]);
+    cout << "Correlation Results:\n\n";
+    // Loop through each combination of attributes pairs
+    for (int i = 0; i < sizeof(data) / sizeof(data[0]) - 1; i++) {
+        for (int j = i + 1; j < sizeof(data) / sizeof(data[0]); j++) {
 
-    // Re-work where this check happens
-    if (len1 != len2) {
-        cout << "Error calculating statistics on arrays. Different array lengths.\n";
-        return 1;
+            int len1 = sizeof(data[i]) / sizeof(data[i][0]);
+            int len2 = sizeof(data[j]) / sizeof(data[j][0]);
+
+            if (len1 != len2) {
+                cout << "Error calculating statistics on arrays. Different array lengths.\n";
+                return 1;
+            }
+
+            // Determine how strong the correlation between two datasets is
+            float correlation = correlation_coefficient(data[i], data[j], len1);
+            if(correlationCurrIndex >= sizeof(correlationValues) / sizeof(correlationValues[0]))
+            {
+                cout << "Error. Attempted to assign out-of-bounds value in correlation values array.";
+                return 1;
+            }
+            correlationValues[correlationCurrIndex] = correlation;
+            correlationCurrIndex++;
+
+            // Print correlation result
+            bool possible_correlation = print_correlation_strength(attributes[i], attributes[j], correlation);
+
+            // If the datasets are found to be correlated, find best-fit line and plot
+            if (possible_correlation) {
+                linear_regression(data[i], data[j], len1);
+            }
+
+
+        }
     }
 
-    // Determine how strong the correlation between two datasets is
-    float correlation_ab = correlation_coefficient(a, b, len1);
+    //Display the most strongly positive/negative correlations
+    sort(begin(correlationValues), end(correlationValues));
+    print_strongest_correlation(correlationValues, sizeof(correlationValues) / sizeof(correlationValues[0]));
 
-    // Print correlation result
-    bool possible_correlation = print_correlation_strength(att_a, att_b, correlation_ab);
-
-    // If the datasets are found to be correlated, find best-fit line and plot
-    if (possible_correlation) {
-        linear_regression(a, b, len1);
-    }
 }
 
