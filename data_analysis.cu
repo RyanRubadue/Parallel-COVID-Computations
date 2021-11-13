@@ -61,6 +61,7 @@ __global__ void calculate_centers(float data[], int clusters[], float centers[])
     }
 
     __syncthreads();
+    i = threadIdx.x + blockIdx.x * blockDim.x;
     
     if (i < NUM_CLUSTERS){
         atomicAdd(&centers[threadIdx.x], temp_centers[threadIdx.x]);
@@ -102,27 +103,39 @@ __global__ void compare(float data[], float centers[], int clusters[], bool* cha
     }
 }
 
-__global__ void classify(int clusters[], int locations[], int mapping[], int* max_loc){
+__global__ void classify(int clusters[], int locations[], int mapping[], int* max_loc, int* index){
     
-    int index = 0;
-    int i = threadIdx.x + blockIdx.x + blockDim.x;
+    
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    *index = 0;
     if (i < NUM_RECORDS){
-        for(int j = 0; j < *max_loc; j++){
-            if(locations[i] == j){
-                atomicAdd(&mapping[clusters[i]], 1);
+        for(int j = 0; j <= *max_loc; j++){
+            if(i < NUM_CLUSTERS){
+                mapping[i] = 0;
             }
+            
+            if(locations[i] == j){
+                int x = clusters[i];
+                atomicAdd(&mapping[x], 1);
+            }
+            
+            __syncthreads();
             
             if (i == 1){
                 int max = mapping[0];
-                index = 0;
+                *index = 0;
+
                 for(int p = 1; p < NUM_CLUSTERS; p++){
                     if (mapping[p] > max){
                         max = mapping[p];
-                        index = p;
+                        *index = p;
                     }
                 }
             }
-            clusters[i] = index;
+            __syncthreads();
+            if(locations[i] == j){
+                clusters[i] = *index;
+            }
         }
     }
 }    
@@ -147,8 +160,29 @@ int main() {
     
     int* locations = new int[NUM_RECORDS];
     cout << "Locations: ";
+    locations[0] = 1;
+    locations[1] = 5;
+    locations[2] = 2;
+    locations[3] = 4;
+    locations[4] = 5;
+    locations[5] = 1;
+    locations[6] = 3;
+    locations[7] = 2;
+    locations[8] = 3;
+    locations[9] = 4;
+    locations[10] = 1;
+    locations[11] = 1;
+    locations[12] = 3;
+    locations[13] = 5;
+    locations[14] = 4;
+    locations[15] = 1;
+    locations[16] = 2;
+    locations[17] = 2;
+    locations[18] = 3;
+    locations[19] = 5;
+    
     for(int i = 0; i < NUM_RECORDS; i++){
-        locations[i] = rand() % 10;
+        //locations[i] = rand() % 10;
         cout << locations[i] << " ";
     }
     cout << endl;
@@ -179,6 +213,7 @@ int main() {
     bool *dev_change_clusters;
     int* dev_mapping;
     int* dev_locations;
+    int* dev_index;
     
     HANDLE_ERROR( cudaMalloc( (void**)&dev_data, SIZE_F ) );
     HANDLE_ERROR( cudaMemcpy( dev_data, input, SIZE_F,
@@ -223,7 +258,7 @@ int main() {
         }
         cout << endl;
         HANDLE_ERROR( cudaMemcpy( change_clusters, dev_change_clusters, sizeof(bool), cudaMemcpyDeviceToHost) );
-        *change_clusters = true;
+
         cout << "Change_clusters is: " << *change_clusters << endl;
         counter--;
     }
@@ -231,17 +266,26 @@ int main() {
     HANDLE_ERROR( cudaMalloc((void**)&dev_locations, NUM_RECORDS*sizeof(int)) );
     HANDLE_ERROR( cudaMemcpy(dev_locations, locations, NUM_RECORDS*sizeof(int), cudaMemcpyHostToDevice) );
     HANDLE_ERROR( cudaMalloc((void**)&dev_mapping, NUM_CLUSTERS*sizeof(int)));
+    HANDLE_ERROR( cudaMemset(dev_mapping, 0, sizeof(int)) );
     HANDLE_ERROR( cudaMalloc((void**)&dev_max_loc,sizeof(int)));
     HANDLE_ERROR( cudaMemcpy(dev_max_loc, max_loc, sizeof(int), cudaMemcpyHostToDevice));
+    HANDLE_ERROR( cudaMalloc((void**)&dev_index, sizeof(int)) );
+    HANDLE_ERROR( cudaMemset(dev_index, 0, sizeof(int)) );
     
-    classify<<<1,20>>>(dev_clusters,dev_locations,dev_mapping,dev_max_loc);
+    classify<<<1,20>>>(dev_clusters,dev_locations,dev_mapping,dev_max_loc,dev_index);
+    int* index = new int;
+    int* mapping = new int[5];
+    HANDLE_ERROR( cudaMemcpy(clusters,dev_clusters, NUM_RECORDS*sizeof(int), cudaMemcpyDeviceToHost) );
+    HANDLE_ERROR( cudaMemcpy(mapping,dev_mapping, NUM_CLUSTERS*sizeof(int), cudaMemcpyDeviceToHost) );
+    HANDLE_ERROR( cudaMemcpy(index, dev_index, sizeof(int), cudaMemcpyDeviceToHost) );
     
-    HANDLE_ERROR( cudaMemcpy(clusters,dev_clusters, NUM_CLUSTERS*sizeof(int), cudaMemcpyDeviceToHost) );
-
+    
+    cout << "Final clusters: " << endl;
     for(int i = 0; i < NUM_RECORDS; i++){
         cout << clusters[i] << " ";
     }
     cout << endl;
+
 
     // get stop time, and display the timing results
     HANDLE_ERROR( cudaEventRecord( stop, 0 ) );
