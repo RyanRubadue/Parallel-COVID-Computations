@@ -1,7 +1,12 @@
 #include <iostream>
-#include <cmath>;
-#include <algorithm>;
+#include <vector>
+#include <random>
+#include <numeric>
+#include <cmath>
+#include <algorithm>
+#include <limits.h>
 
+#include "gnuplot-iostream.h"
 using namespace std;
 
 
@@ -31,7 +36,7 @@ float correlation_coefficient(double xValues[], double yValues[], int len1) {
     return xy / sqrt(ssx * ssy);
 }
 
-int linear_regression(double xValues[], double yValues[], int len1)
+void linear_regression(double xValues[], double yValues[], int len1, double &a, double &b)
 {
     double sumx = 0;
     double sumy = 0;
@@ -47,9 +52,9 @@ int linear_regression(double xValues[], double yValues[], int len1)
         sumySquared = sumySquared + pow(yValues[i], 2);
     }
 
-    double a = ((sumy * sumxSquared) - (sumx * sumxy)) / ((len1 * sumxSquared) - pow(sumx, 2));
-    double b = ((len1 * sumxy) - (sumx * sumy)) / ((len1 * sumxSquared) - pow(sumx, 2));
-    return 0;
+    a = ((sumy * sumxSquared) - (sumx * sumxy)) / ((len1 * sumxSquared) - pow(sumx, 2));
+    b = ((len1 * sumxy) - (sumx * sumy)) / ((len1 * sumxSquared) - pow(sumx, 2));
+    int ret[] = { a, b };
 }
 
 bool print_correlation_strength(string attributeA, string attributeB, float correlation) {
@@ -99,8 +104,66 @@ void print_strongest_correlation(double sorted_correlations[], int len) {
 }
 
 
+// Demo function for verifying that gnuplot is functional
+void demoGnuPlot() {
+    Gnuplot gp("\"C:\\Program Files\\code\\gnuplot\\bin\\gnuplot.exe\""); //must have the exact path to the gnuplot binary on local machine
+    random_device rd;
+    mt19937 mt(rd());
+    normal_distribution<double> normdist(0., 1);
+
+    vector<double> v0, v1;
+    for (int i = 0; i < 1000; i++) {
+        v0.push_back(normdist(mt));
+        v1.push_back(normdist(mt));
+    }
+    partial_sum(v0.begin(), v0.end(), v0.begin());
+    partial_sum(v1.begin(), v1.end(), v1.begin());
+
+    gp << "set title 'Graph of two random lines'\n"; //must end gnuplot commands in newline character or will fail
+    gp << "plot '-' with lines title 'v0'," 
+        << "'-' with lines title 'v1'\n"; //dashes tell gnuplot to listen on stdin
+    gp.send(v0);
+    gp.send(v1);
+
+    cin.get();
+}
+
+
+void plot_best_fit(double attributeA[], double attributeB[], string nameA, string nameB, int len, double a, double b) {
+    Gnuplot gp("\"C:\\Program Files\\code\\gnuplot\\bin\\gnuplot.exe\"");
+    vector<double> scatter_data;
+    vector<double> best_fit_bounds;
+    vector<double> temp;
+    int maxA = INT_MIN;
+    int minA = INT_MAX;
+
+    for (int i = 0; i < len; i++) {
+        temp = { attributeA[i], attributeB[i] };
+        scatter_data.insert(scatter_data.end(), temp.begin(), temp.end());
+
+        maxA = max(maxA, attributeA[i]);
+        minA = min(minA, attributeA[i]);
+    }
+
+    //Store two points for best fit line on min/max x values displayed
+    temp = { double(minA), minA * a + b };
+    best_fit_bounds.insert(best_fit_bounds.end(), temp.begin(), temp.end());
+    temp = { double(maxA), maxA * a + b };
+    best_fit_bounds.insert(best_fit_bounds.end(), temp.begin(), temp.end());
+
+    gp << "set title 'Graph of' << stringA <<  'lines'\n";
+    gp << "plot '-' with points title 'Scatter Points',"
+        << "'-' with lines title 'Best Fit Line'\n";
+    
+    gp.send(scatter_data);
+    gp.send(best_fit_bounds);
+    cin.get();
+}
+
 int main()
 {
+    // test gnuplot on random data
+    //demoGnuPlot();
     std::cout << "Beginning Display of Analyzed Data Results\n\n";
 
     // Mock attribute names
@@ -145,7 +208,12 @@ int main()
 
             // If the datasets are found to be correlated, find best-fit line and plot
             if (possible_correlation) {
-                linear_regression(data[i], data[j], len1);
+                double a, b;
+                linear_regression(data[i], data[j], len1, a, b);
+                cout << "a" << a << "b" << b;
+
+                plot_best_fit(data[i], data[j], attributes[i], attributes[j], len1, a, b);
+                return 0;
             }
 
 
@@ -155,6 +223,5 @@ int main()
     //Display the most strongly positive/negative correlations
     sort(begin(correlationValues), end(correlationValues));
     print_strongest_correlation(correlationValues, sizeof(correlationValues) / sizeof(correlationValues[0]));
-
 }
 
