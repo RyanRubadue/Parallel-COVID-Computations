@@ -9,7 +9,6 @@
 #include "gnuplot-iostream.h"
 using namespace std;
 
-
 float correlation_coefficient(double xValues[], double yValues[], int len1) {
 
     // Calculate mean of each dataset
