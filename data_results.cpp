@@ -9,6 +9,7 @@
 #include "gnuplot-iostream.h"
 using namespace std;
 
+
 float correlation_coefficient(double xValues[], double yValues[], int len1) {
 
     // Calculate mean of each dataset
@@ -51,8 +52,8 @@ void linear_regression(double xValues[], double yValues[], int len1, double &a, 
         sumySquared = sumySquared + pow(yValues[i], 2);
     }
 
-    a = ((sumy * sumxSquared) - (sumx * sumxy)) / ((len1 * sumxSquared) - pow(sumx, 2));
-    b = ((len1 * sumxy) - (sumx * sumy)) / ((len1 * sumxSquared) - pow(sumx, 2));
+    a = ((len1 * sumxy) - (sumx * sumy)) / ((len1 * sumxSquared) - pow(sumx, 2));
+    b = ((sumy * sumxSquared) - (sumx * sumxy)) / ((len1 * sumxSquared) - pow(sumx, 2));
     int ret[] = { a, b };
 }
 
@@ -130,27 +131,34 @@ void demoGnuPlot() {
 
 void plot_best_fit(double attributeA[], double attributeB[], string nameA, string nameB, int len, double a, double b) {
     Gnuplot gp("\"C:\\Program Files\\code\\gnuplot\\bin\\gnuplot.exe\"");
-    vector<double> scatter_data;
-    vector<double> best_fit_bounds;
-    vector<double> temp;
-    int maxA = INT_MIN;
-    int minA = INT_MAX;
+    vector<double> scatter_data_x, scatter_data_y;
+    vector<vector<double>> best_fit_bounds, scatter_data;
+    vector<double> temp1, temp2;
+    int maxA = INT_MIN, maxB = INT_MIN;
+    int minA = INT_MAX, minB = INT_MAX;
 
     for (int i = 0; i < len; i++) {
-        temp = { attributeA[i], attributeB[i] };
-        scatter_data.insert(scatter_data.end(), temp.begin(), temp.end());
+        scatter_data_x.insert(scatter_data_x.end(), attributeA[i]);
+        scatter_data_y.insert(scatter_data_y.end(), attributeB[i]);
 
         maxA = max(maxA, attributeA[i]);
         minA = min(minA, attributeA[i]);
+        maxB = max(maxB, attributeB[i]);
+        minB = min(minB, attributeB[i]);
     }
 
     //Store two points for best fit line on min/max x values displayed
-    temp = { double(minA), minA * a + b };
-    best_fit_bounds.insert(best_fit_bounds.end(), temp.begin(), temp.end());
-    temp = { double(maxA), maxA * a + b };
-    best_fit_bounds.insert(best_fit_bounds.end(), temp.begin(), temp.end());
+    temp1 = { double(minA), double(maxA)};
+    temp2 = { (minA) * a + b, (maxA) * a + b};
 
+    scatter_data = { scatter_data_x, scatter_data_y};
+    best_fit_bounds = { temp1, temp2 };
+
+    //set properties of plot
     gp << "set title 'Graph of' << stringA <<  'lines'\n";
+    gp << "set yrange [" << minB - 1 << ":" << maxB + 1 << "]\n";
+
+    //plot data ** for some reason data falling on x/y bounds does not show up
     gp << "plot '-' with points title 'Scatter Points',"
         << "'-' with lines title 'Best Fit Line'\n";
     
@@ -159,6 +167,15 @@ void plot_best_fit(double attributeA[], double attributeB[], string nameA, strin
     cin.get();
 }
 
+
+//flow of current tasks
+
+// 1. Read Data (using mock data currently)
+// 2. Calculate Correlations between each set of data
+// 3. Categorize strength of correlations
+// 4. Calculate Linear Regressions for non-minimal correlations
+// 5. Plot data and regression for non-minimal correlations
+// 6. Track and output the most positive/negative correlations
 int main()
 {
     // test gnuplot on random data
@@ -174,7 +191,7 @@ int main()
     // Change explicit array size declaration
     // Definition of mock input arrays
     const int data_len = 4;
-    double data[data_len][6] = { { 1, 2, 3 , 4, 5, 6}, { 5, 0, 2, 4, 8, 12}, { 20, 15, 11, 5, 7, 0 }, { 22, 21, 22, 21, 22, 21 }};
+    double data[data_len][6] = { { 1, 2, 3 , 4, 5, 6}, { 5, 1, 2, 4, 8, 11}, { 20, 15, 11, 5, 7, 0 }, { 22, 21, 22, 21, 22, 21 }};
     double correlationValues[(data_len) * (data_len - 1) / 2];
     int correlationCurrIndex = 0;
     string attributes[] = { att_a, att_b, att_c, att_d };
@@ -212,15 +229,15 @@ int main()
                 cout << "a" << a << "b" << b;
 
                 plot_best_fit(data[i], data[j], attributes[i], attributes[j], len1, a, b);
-                return 0;
             }
 
 
         }
     }
 
-    //Display the most strongly positive/negative correlations
+    //Display the most strongly positive/negative correlations between hospitalization/deaths and other factors
     sort(begin(correlationValues), end(correlationValues));
     print_strongest_correlation(correlationValues, sizeof(correlationValues) / sizeof(correlationValues[0]));
-}
 
+    return 0;
+}
