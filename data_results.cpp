@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <limits.h>
 
-#include "gnuplot-iostream.h"
+
 using namespace std;
 
 
@@ -104,82 +104,15 @@ void print_strongest_correlation(double sorted_correlations[], int len) {
 }
 
 
-// Demo function for verifying that gnuplot is functional
-void demoGnuPlot() {
-    Gnuplot gp("\"C:\\Program Files\\code\\gnuplot\\bin\\gnuplot.exe\""); //must have the exact path to the gnuplot binary on local machine
-    random_device rd;
-    mt19937 mt(rd());
-    normal_distribution<double> normdist(0., 1);
-
-    vector<double> v0, v1;
-    for (int i = 0; i < 1000; i++) {
-        v0.push_back(normdist(mt));
-        v1.push_back(normdist(mt));
-    }
-    partial_sum(v0.begin(), v0.end(), v0.begin());
-    partial_sum(v1.begin(), v1.end(), v1.begin());
-
-    gp << "set title 'Graph of two random lines'\n"; //must end gnuplot commands in newline character or will fail
-    gp << "plot '-' with lines title 'v0'," 
-        << "'-' with lines title 'v1'\n"; //dashes tell gnuplot to listen on stdin
-    gp.send(v0);
-    gp.send(v1);
-
-    cin.get();
-}
-
-
-void plot_best_fit(double attributeA[], double attributeB[], string nameA, string nameB, int len, double a, double b) {
-    Gnuplot gp("\"C:\\Program Files\\code\\gnuplot\\bin\\gnuplot.exe\"");
-    vector<double> scatter_data_x, scatter_data_y;
-    vector<vector<double>> best_fit_bounds, scatter_data;
-    vector<double> temp1, temp2;
-    int maxA = INT_MIN, maxB = INT_MIN;
-    int minA = INT_MAX, minB = INT_MAX;
-
-    for (int i = 0; i < len; i++) {
-        scatter_data_x.insert(scatter_data_x.end(), attributeA[i]);
-        scatter_data_y.insert(scatter_data_y.end(), attributeB[i]);
-
-        maxA = max(maxA, attributeA[i]);
-        minA = min(minA, attributeA[i]);
-        maxB = max(maxB, attributeB[i]);
-        minB = min(minB, attributeB[i]);
-    }
-
-    //Store two points for best fit line on min/max x values displayed
-    temp1 = { double(minA), double(maxA)};
-    temp2 = { (minA) * a + b, (maxA) * a + b};
-
-    scatter_data = { scatter_data_x, scatter_data_y};
-    best_fit_bounds = { temp1, temp2 };
-
-    //set properties of plot
-    gp << "set title 'Graph of' << stringA <<  'lines'\n";
-    gp << "set yrange [" << minB - 1 << ":" << maxB + 1 << "]\n";
-
-    //plot data ** for some reason data falling on x/y bounds does not show up
-    gp << "plot '-' with points title 'Scatter Points',"
-        << "'-' with lines title 'Best Fit Line'\n";
-    
-    gp.send(scatter_data);
-    gp.send(best_fit_bounds);
-    cin.get();
-}
-
-
 //flow of current tasks
 
 // 1. Read Data (using mock data currently)
 // 2. Calculate Correlations between each set of data
 // 3. Categorize strength of correlations
 // 4. Calculate Linear Regressions for non-minimal correlations
-// 5. Plot data and regression for non-minimal correlations
 // 6. Track and output the most positive/negative correlations
 int main()
 {
-    // test gnuplot on random data
-    //demoGnuPlot();
     std::cout << "Beginning Display of Analyzed Data Results\n\n";
 
     // Mock attribute names
@@ -222,13 +155,11 @@ int main()
             // Print correlation result
             bool possible_correlation = print_correlation_strength(attributes[i], attributes[j], correlation);
 
-            // If the datasets are found to be correlated, find best-fit line and plot
+            // If the datasets are found to be correlated, find best-fit line 
             if (possible_correlation) {
                 double a, b;
                 linear_regression(data[i], data[j], len1, a, b);
                 cout << "a" << a << "b" << b;
-
-                plot_best_fit(data[i], data[j], attributes[i], attributes[j], len1, a, b);
             }
 
 
