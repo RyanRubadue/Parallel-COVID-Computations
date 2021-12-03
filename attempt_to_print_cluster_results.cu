@@ -374,6 +374,7 @@ int main() {
 	
 	float* data_avg = new float[*max_loc];
 	const int SIZE_F = *max_loc * sizeof(float);
+	const int SIZE_R = NUM_RECORDS * sizeof(float);
 
 	HANDLE_ERROR( cudaEventRecord( stop, 0 ) );
 	HANDLE_ERROR( cudaEventSynchronize( stop ) );
@@ -470,7 +471,7 @@ int main() {
 	float *dev_cluster_avg;
 	//int *dev_country_count;
 
-	float result_data[SIZE_F * NUM_COLUMNS];
+	float result_data[SIZE_R * NUM_COLUMNS];
 	float *correlations = new float[NUM_PAIRS];
 	float* cluster_avg = new float[*max_loc];
 	//int* country_count = new int[*max_loc];
@@ -487,23 +488,25 @@ int main() {
 	HANDLE_ERROR( cudaMemcpy(cluster_avg, dev_cluster_avg, NUM_PAIRS * sizeof(float), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR( cudaMemcpy(country_count, dev_country_count, NUM_PAIRS * sizeof(float), cudaMemcpyDeviceToHost));
 	for(int i =0; i < *max_loc; i++){
-		if(country_count[i] < 1) cout << "No entries seen for country " << i << "\n";
-		else cout << "Cluster Average for Country " << i << ":   " << cluster_avg[i] / country_count[i] << "\n";
+		if(country_count[i] < 1 || cluster_avg[i] != cluster_avg[i]) cout << "No entries seen for country " << i << "\n";
+		else cout << "Cluster Average for Country " << i << ":   " << abs(cluster_avg[i] / country_count[i]) << "\n";
 	}
 	
 	for(int i =0; i < NUM_PAIRS; i++) correlations[i] = 0;
-	for(int i = 0; i < NUM_RECORDS; i++) result_data[i] = input_1[i];
-	for(int i = 0; i < NUM_RECORDS; i++) result_data[i + NUM_RECORDS] = input_2[i];
-	for(int i = 0; i < NUM_RECORDS; i++) result_data[i + 2*NUM_RECORDS] = input_3[i];
-	for(int i = 0; i < NUM_RECORDS; i++) result_data[i+3*NUM_RECORDS] = input_4[i];
+	for(int i = 0; i < NUM_RECORDS; i++){
+	    result_data[i] = input_1[i];
+    	    result_data[i + NUM_RECORDS] = input_2[i];
+	    result_data[i + 2*NUM_RECORDS] = input_3[i];
+	    result_data[i+3*NUM_RECORDS] = input_4[i];
+	}
 
-	HANDLE_ERROR( cudaMalloc( (void**)&dev_result_data, SIZE_F * NUM_COLUMNS ) );
-	HANDLE_ERROR( cudaMemcpy( dev_result_data, result_data, SIZE_F * NUM_COLUMNS, cudaMemcpyHostToDevice) );  
+	HANDLE_ERROR( cudaMalloc( (void**)&dev_result_data, SIZE_R * NUM_COLUMNS ) );
+	HANDLE_ERROR( cudaMemcpy( dev_result_data, result_data, SIZE_R * NUM_COLUMNS, cudaMemcpyHostToDevice) );  
 
 	HANDLE_ERROR( cudaMalloc( (void**)&dev_correlations, NUM_PAIRS * sizeof(float) ) );
 	HANDLE_ERROR( cudaMemcpy( dev_correlations, correlations, NUM_PAIRS * sizeof(float), cudaMemcpyHostToDevice) );  
 
-	cout << "Calculating Correlations... ";
+	cout << "\n\nCalculating Correlations... ";
 	calculate_correlations<<<1, NUM_PAIRS>>>(dev_result_data, dev_correlations);
 	cudaDeviceSynchronize();
 
