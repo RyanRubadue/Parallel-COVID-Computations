@@ -39,7 +39,7 @@ const int COLUMN_NUMBER_1 = 4; // Column #
 const int COLUMN_NUMBER_2 = 7; // Column #
 const int COLUMN_NUMBER_3 = 31; // Column #
 const int COLUMN_NUMBER_4 = 35; // Column #
-const int NUM_RECORDS = 130600; // Number of Records to read
+const int NUM_RECORDS = 121955; // Number of Records to read
 const int NUM_CLUSTERS = 5;
 const int NUM_PAIRS = 6; //Number of possible Column pairings
 const int NUM_COLUMNS = 4; //Number of columns we are using
@@ -63,6 +63,7 @@ void build_input(float input_1[], float input_2[], float input_3[], float input_
 				location++;
 				current_location = value;
 				locations[lines - 1] = location;
+				cout << "Location #: " << location << "\t| Location: " << current_location << endl;
 			}
 			else if (column_count == 2 && current_location == value)
 			{
@@ -185,64 +186,64 @@ __global__ void display_data_averages(float data_avg[], int locations[], float d
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int offset = blockDim.x * gridDim.x;
 	while ( i < NUM_RECORDS){
-	    atomicAdd(&data_avg[locations[i]], data[i]);
-	    atomicAdd(&country_count[locations[i]], 1);	
-	    i = i + offset;
+		atomicAdd(&data_avg[locations[i]], data[i]);
+		atomicAdd(&country_count[locations[i]], 1);	
+		i = i + offset;
 	}
 	__syncthreads();
 }
 
 __global__ void calculate_correlations(float result_data[], float correlations[]) {
-    int xIndex = 0;
-    int yIndex = 0;
-    int increment = NUM_COLUMNS -1;
-    int currIndex = threadIdx.x;
+	int xIndex = 0;
+	int yIndex = 0;
+	int increment = NUM_COLUMNS -1;
+	int currIndex = threadIdx.x;
 
-    //calculate the two indices of the data we are comparing using current thread
-    while(currIndex >= (NUM_COLUMNS -1)){
+	//calculate the two indices of the data we are comparing using current thread
+	while(currIndex >= (NUM_COLUMNS -1)){
 	xIndex++;
-        increment--;
+		increment--;
 	if(increment < 1){
-	     printf("Error calculating current Indexes to calculate correlations\n");
-	     return;
+		 printf("Error calculating current Indexes to calculate correlations\n");
+		 return;
 	}
-        currIndex -= increment;
-    }
-    xIndex *= NUM_RECORDS;
-    yIndex = (1 + currIndex) * NUM_RECORDS;
-    //printf("hello from thread %d. I have xIndex %d and yIndex %d. Current increment is %d. Curr index %d\n", threadIdx.x, xIndex, yIndex, increment, currIndex);
+		currIndex -= increment;
+	}
+	xIndex *= NUM_RECORDS;
+	yIndex = (1 + currIndex) * NUM_RECORDS;
+	//printf("hello from thread %d. I have xIndex %d and yIndex %d. Current increment is %d. Curr index %d\n", threadIdx.x, xIndex, yIndex, increment, currIndex);
 
-    if(xIndex < 0 || xIndex >= NUM_COLUMNS * NUM_RECORDS || yIndex < 0 || yIndex >= NUM_COLUMNS * NUM_RECORDS || xIndex == yIndex){
+	if(xIndex < 0 || xIndex >= NUM_COLUMNS * NUM_RECORDS || yIndex < 0 || yIndex >= NUM_COLUMNS * NUM_RECORDS || xIndex == yIndex){
 	printf("Invalid indices calculated during correlation calculation function\n");
 	return;
-    }
+	}
 
-    __syncthreads();
-    if(threadIdx.x < NUM_PAIRS){
-	    // Calculate mean of each dataset
-	    float meanx = 0;
-	    float meany = 0;
-	    for (int i = 0; i < NUM_RECORDS; i++) {
+	__syncthreads();
+	if(threadIdx.x < NUM_PAIRS){
+		// Calculate mean of each dataset
+		float meanx = 0;
+		float meany = 0;
+		for (int i = 0; i < NUM_RECORDS; i++) {
 		meanx = meanx + 0.0001 * result_data[xIndex + i];
 		meany = meany + 0.0001 * result_data[yIndex + i];
-	    }
-	    meanx = meanx / (NUM_RECORDS * 0.0001);
-	    meany = meany / (NUM_RECORDS * 0.0001);
-	    // Calculate deviation scores and product of deviation scores
-	    float ssx = 0;
-	    float ssy = 0;
-	    float xy = 0;
-	    for (int i = 0; i < NUM_RECORDS; i++) {
+		}
+		meanx = meanx / (NUM_RECORDS * 0.0001);
+		meany = meany / (NUM_RECORDS * 0.0001);
+		// Calculate deviation scores and product of deviation scores
+		float ssx = 0;
+		float ssy = 0;
+		float xy = 0;
+		for (int i = 0; i < NUM_RECORDS; i++) {
 		ssx = ssx + 0.0001 * pow(result_data[xIndex + i] - meanx, 2);
 		ssy = ssy + 0.0001 * pow(result_data[yIndex + i] - meany, 2);
 		xy = xy + 0.0001 * (result_data[xIndex + i] - meanx) * (result_data[yIndex + i] - meany);
-	    }
+		}
 
-	    // Calculate correlation
-	    correlations[threadIdx.x] = (xy / sqrt(ssx * ssy));
-	    __syncthreads();
-    }
-    else printf("Invalid thread number\n");
+		// Calculate correlation
+		correlations[threadIdx.x] = (xy / sqrt(ssx * ssy));
+		__syncthreads();
+	}
+	else printf("Invalid thread number\n");
 }
 
 
@@ -255,16 +256,16 @@ __global__ void display_correlations(float correlations[]){
 	int currIndex = threadIdx.x;
 	
 	while(currIndex >= NUM_COLUMNS -1){
-	    increment--;
-	    xIndex++;
-	    if(increment < 1){
-	         printf("Error calculating current Indexes to display correlations\n");
-	         return;
-	    }
-        currIndex -= increment;
-        }
-        xIndex += 1;
-        yIndex = (2 + currIndex);
+		increment--;
+		xIndex++;
+		if(increment < 1){
+			 printf("Error calculating current Indexes to display correlations\n");
+			 return;
+		}
+		currIndex -= increment;
+		}
+		xIndex += 1;
+		yIndex = (2 + currIndex);
 
 	if (abs(correlations[threadIdx.x]) > 1) {
 		printf("Invalid correlation value. Exiting\n");
@@ -290,52 +291,52 @@ __global__ void display_correlations(float correlations[]){
 
 __global__ void calculate_linear_regressions(float correlations[], float data[])
 {
-    float sumx = 0;
-    float sumy = 0;
-    float sumxy = 0;
-    float sumxSquared = 0;
-    float sumySquared = 0;
-    int xIndex = 0;
-    int yIndex = 0;
-    int increment = NUM_COLUMNS -1;
-    int currIndex = threadIdx.x;
+	float sumx = 0;
+	float sumy = 0;
+	float sumxy = 0;
+	float sumxSquared = 0;
+	float sumySquared = 0;
+	int xIndex = 0;
+	int yIndex = 0;
+	int increment = NUM_COLUMNS -1;
+	int currIndex = threadIdx.x;
 
-    //calculate the two indices of the data we are comparing using current thread
-    while(currIndex >= (NUM_COLUMNS -1)){
+	//calculate the two indices of the data we are comparing using current thread
+	while(currIndex >= (NUM_COLUMNS -1)){
 	xIndex++;
-        increment--;
+		increment--;
 	if(increment < 1){
-	     printf("Error calculating current Indexes to calculate linear regressions\n");
-	     return;
+		 printf("Error calculating current Indexes to calculate linear regressions\n");
+		 return;
 	}
-        currIndex -= increment;
-    }
-    xIndex *= NUM_RECORDS;
-    yIndex = (1 + currIndex) * NUM_RECORDS;
-    
-    if(abs(correlations[threadIdx.x]) < 0.3){
+		currIndex -= increment;
+	}
+	xIndex *= NUM_RECORDS;
+	yIndex = (1 + currIndex) * NUM_RECORDS;
+	
+	if(abs(correlations[threadIdx.x]) < 0.3){
 	printf("Minimal correlation between quanitifiers %d and %d. Skipping Calculating Regression.\n", xIndex / NUM_RECORDS + 1, yIndex / NUM_RECORDS + 1);
 	return;
-    }
+	}
 
-    for (int i = 0; i < NUM_RECORDS; i++) {
-        sumx = sumx + 0.0001 * data[xIndex + i];
-        sumy = sumy + 0.0001 * data[yIndex + i];
-        sumxy = sumxy + 0.0001 * (data[xIndex + i] * data[yIndex + i]);
-        sumxSquared = sumxSquared + 0.0001 * pow(data[xIndex + i], 2);
-        sumySquared = sumySquared + 0.0001 * pow(data[yIndex + i], 2);
-    }
-    float a = 10000 * (((NUM_RECORDS * sumxy) - (sumx * sumy)) / ((NUM_RECORDS * sumxSquared) - pow(sumx, 2)));
-    float b = 10000 * (((sumy * sumxSquared) - (sumx * sumxy)) / ((NUM_RECORDS * sumxSquared) - pow(sumx, 2)));
-    printf("The calculated linear regression for columns %d and %d is %fx + %f\n", xIndex / NUM_RECORDS + 1, yIndex / NUM_RECORDS + 1, a, b);
+	for (int i = 0; i < NUM_RECORDS; i++) {
+		sumx = sumx + 0.0001 * data[xIndex + i];
+		sumy = sumy + 0.0001 * data[yIndex + i];
+		sumxy = sumxy + 0.0001 * (data[xIndex + i] * data[yIndex + i]);
+		sumxSquared = sumxSquared + 0.0001 * pow(data[xIndex + i], 2);
+		sumySquared = sumySquared + 0.0001 * pow(data[yIndex + i], 2);
+	}
+	float a = 10000 * (((NUM_RECORDS * sumxy) - (sumx * sumy)) / ((NUM_RECORDS * sumxSquared) - pow(sumx, 2)));
+	float b = 10000 * (((sumy * sumxSquared) - (sumx * sumxy)) / ((NUM_RECORDS * sumxSquared) - pow(sumx, 2)));
+	printf("The calculated linear regression for columns %d and %d is %fx + %f\n", xIndex / NUM_RECORDS + 1, yIndex / NUM_RECORDS + 1, a, b);
 }
 
 
 __global__ void display_cluster_averages(float cluster_avg[], int locations[], int clusters[], int country_count[]){
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	if( i < NUM_RECORDS){
-	    atomicAdd(&cluster_avg[locations[i]], clusters[i]);
-	    atomicAdd(&country_count[i], 1);	
+		atomicAdd(&cluster_avg[locations[i]], clusters[i]);
+		atomicAdd(&country_count[i], 1);	
 	}
 	__syncthreads();
 }
@@ -402,17 +403,17 @@ int main() {
 	display_data_averages<<<1, 1024>>>(dev_data_avg, dev_locations, dev_data, dev_country_count);
 	
 	HANDLE_ERROR( cudaMemcpy(data_avg, dev_data_avg, *max_loc * sizeof(float), cudaMemcpyDeviceToHost) );
-    HANDLE_ERROR( cudaMemcpy(country_count, dev_country_count, *max_loc * sizeof(float), cudaMemcpyDeviceToHost) );
+	HANDLE_ERROR( cudaMemcpy(country_count, dev_country_count, *max_loc * sizeof(float), cudaMemcpyDeviceToHost) );
 	
 	for(int i =0; i < *max_loc; i++){
-	    if(country_count[i] < 1) {
-	        country_avg[i] = 0;
-	        cout << "No entries seen for country " << i << "\n";
-	    }
-	    else {
-	        country_avg[i] = data_avg[i] / country_count[i];
-	        cout << "Cluster Average for Country " << i << ":   " << data_avg[i] / country_count[i] << "\n";    
-	    }
+		if(country_count[i] < 1) {
+			country_avg[i] = 0;
+			cout << "No entries seen for country " << i << "\n";
+		}
+		else {
+			country_avg[i] = data_avg[i] / country_count[i];
+			cout << "Cluster Average for Country " << i << ":   " << data_avg[i] / country_count[i] << "\n";	
+		}
 	}
 	
 	find_range(country_avg, centers, max_loc);
@@ -468,16 +469,16 @@ int main() {
 	HANDLE_ERROR( cudaEventElapsedTime( &elapsedTime, start, stop ) );
 	printf( "Time to Analyze:  %3.1f ms\n", elapsedTime );
 
-    int* cluster_count = new int[NUM_CLUSTERS];
-    for(int i = 0; i < NUM_CLUSTERS; i++){
-        cluster_count[i] = 0;
-    }
-    for(int i = 0; i < *max_loc; i++){
-            cluster_count[clusters[i]]++;
-    	}
+	int* cluster_count = new int[NUM_CLUSTERS];
+	for(int i = 0; i < NUM_CLUSTERS; i++){
+		cluster_count[i] = 0;
+	}
+	for(int i = 0; i < *max_loc; i++){
+			cluster_count[clusters[i]]++;
+		}
 
 	for(int i = 0; i < NUM_CLUSTERS; i++){
-	    cout << "Cluster " << i << ": " << cluster_count[i] << endl;
+		cout << "Cluster " << i << ": " << cluster_count[i] << endl;
 	}
 	
 	//Results - Ryan
@@ -485,15 +486,15 @@ int main() {
 	cout << "Beginning Display of Results\n\n";
 
 	// Allocate device memory
-        float *dev_correlations;
-        float *dev_result_data;
+	float *dev_correlations;
+	float *dev_result_data;
 	float *dev_cluster_avg;
-	int *dev_country_count;
+	//int *dev_country_count;
 
 	float result_data[SIZE_F * NUM_COLUMNS];
 	float *correlations = new float[NUM_PAIRS];
 	float* cluster_avg = new float[*max_loc];
-	int* country_count = new int[*max_loc];
+	//int* country_count = new int[*max_loc];
 
 	HANDLE_ERROR( cudaMalloc( (void**)&dev_cluster_avg, *max_loc * sizeof(float) ) );
 	HANDLE_ERROR( cudaMemcpy( dev_cluster_avg, cluster_avg, *max_loc * sizeof(float) , cudaMemcpyHostToDevice) );
@@ -507,10 +508,11 @@ int main() {
 	HANDLE_ERROR( cudaMemcpy(cluster_avg, dev_cluster_avg, NUM_PAIRS * sizeof(float), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR( cudaMemcpy(country_count, dev_country_count, NUM_PAIRS * sizeof(float), cudaMemcpyDeviceToHost));
 	for(int i =0; i < *max_loc; i++){
-	    if(country_count[i] < 1) cout << "No entries seen for country " << i << "\n";
-	    else cout << "Cluster Average for Country " << i << ":   " << cluster_avg[i] / country_count[i] << "\n";
+		if(country_count[i] < 1) cout << "No entries seen for country " << i << "\n";
+		else cout << "Cluster Average for Country " << i << ":   " << cluster_avg[i] / country_count[i] << "\n";
 	}
-        for(int i =0; i < NUM_PAIRS; i++) correlations[i] = 0;
+	
+	for(int i =0; i < NUM_PAIRS; i++) correlations[i] = 0;
 	for(int i = 0; i < NUM_RECORDS; i++) result_data[i] = input_1[i];
 	for(int i = 0; i < NUM_RECORDS; i++) result_data[i + NUM_RECORDS] = input_2[i];
 	for(int i = 0; i < NUM_RECORDS; i++) result_data[i + 2*NUM_RECORDS] = input_3[i];
