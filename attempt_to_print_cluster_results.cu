@@ -321,16 +321,6 @@ __global__ void calculate_linear_regressions(float correlations[], float data[])
 	printf("The calculated linear regression for columns %d and %d is %fx + %f\n", xIndex / NUM_RECORDS + 1, yIndex / NUM_RECORDS + 1, a, b);
 }
 
-
-__global__ void display_cluster_averages(float cluster_avg[], int locations[], int clusters[], int country_count[]){
-	int i = threadIdx.x + blockIdx.x * blockDim.x;
-	if( i < NUM_RECORDS){
-		atomicAdd(&cluster_avg[locations[i]], clusters[i]);
-		atomicAdd(&country_count[i], 1);	
-	}
-	__syncthreads();
-}
-
 int main() {
 	cout << "Starting..." << endl;
 	
@@ -468,28 +458,13 @@ int main() {
 	// Allocate device memory
 	float *dev_correlations;
 	float *dev_result_data;
-	float *dev_cluster_avg;
-	//int *dev_country_count;
 
 	float result_data[SIZE_R * NUM_COLUMNS];
 	float *correlations = new float[NUM_PAIRS];
-	float* cluster_avg = new float[*max_loc];
-	//int* country_count = new int[*max_loc];
 
-	HANDLE_ERROR( cudaMalloc( (void**)&dev_cluster_avg, *max_loc * sizeof(float) ) );
-	HANDLE_ERROR( cudaMemcpy( dev_cluster_avg, cluster_avg, *max_loc * sizeof(float) , cudaMemcpyHostToDevice) );
-
-	HANDLE_ERROR( cudaMalloc( (void**)&dev_country_count, *max_loc * sizeof(int) ) );
-	HANDLE_ERROR( cudaMemcpy( dev_country_count, country_count, *max_loc * sizeof(int) , cudaMemcpyHostToDevice) );
-
-	display_cluster_averages<<<1, 20>>>(dev_cluster_avg, dev_locations, dev_clusters, dev_country_count);
-	cudaDeviceSynchronize();
-
-	HANDLE_ERROR( cudaMemcpy(cluster_avg, dev_cluster_avg, NUM_PAIRS * sizeof(float), cudaMemcpyDeviceToHost));
-	HANDLE_ERROR( cudaMemcpy(country_count, dev_country_count, NUM_PAIRS * sizeof(float), cudaMemcpyDeviceToHost));
 	for(int i =0; i < *max_loc; i++){
-		if(country_count[i] < 1 || cluster_avg[i] != cluster_avg[i]) cout << "No entries seen for country " << i << "\n";
-		else cout << "Cluster Average for Country " << i << ":   " << abs(cluster_avg[i] / country_count[i]) << "\n";
+		if(country_count[i] < 1 || data_avg[i] != data_avg[i]) cout << "No entries seen for country " << i << "\n";
+		else cout << "Cluster Average for Country " << i << ":   " << abs(data_avg[i] / country_count[i]) << "\n";
 	}
 	
 	for(int i =0; i < NUM_PAIRS; i++) correlations[i] = 0;
@@ -539,7 +514,6 @@ int main() {
 	cudaFree ( dev_correlations);
 	cudaFree (dev_data);
 	cudaFree(dev_country_count);
-	cudaFree(dev_cluster_avg);
 	
 	return 0;
 }
