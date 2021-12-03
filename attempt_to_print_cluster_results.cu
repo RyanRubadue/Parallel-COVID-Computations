@@ -114,20 +114,6 @@ __global__ void calculate_centers(float data[], int clusters[], float centers[],
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int offset = blockDim.x * gridDim.x;
 	
-	/*
-	if(i < NUM_RECORDS){
-		x[i] = data[i];
-		shared_clusters[i] = clusters[i];
-	}
-	*/
-	
-	/*
-	if (i < NUM_CLUSTERS){
-		centers[i] = 0.0;
-		counts[i] = 0;
-	}
-	*/
-	
 	__syncthreads();
 	
 	while(i < *max_loc){
@@ -165,11 +151,9 @@ __global__ void compare(float data[], float centers[], int clusters[], bool* cha
 			if (diff < min_diff){
 				min_diff = diff;
 				
-				/****NEED TO LOCK?****/
 				if( (clusters[i] != j) && (*change_cluster == false) ){
 					*change_cluster = true;
 				}
-				/*********************/
 				
 				clusters[i] = j;
 			}
