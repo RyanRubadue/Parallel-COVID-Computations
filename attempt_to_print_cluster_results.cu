@@ -182,7 +182,7 @@ __global__ void compare(float data[], float centers[], int clusters[], bool* cha
 	}
 }
 
-__global__ void display_data_averages(float data_avg[], int locations[], float data[], int country_count[]){
+__global__ void display_data_averages(float data_avg[], int locations[], float data[], int country_count[], float country_avg[], int* max_loc){
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int offset = blockDim.x * gridDim.x;
 	while ( i < NUM_RECORDS){
@@ -191,6 +191,12 @@ __global__ void display_data_averages(float data_avg[], int locations[], float d
 		i = i + offset;
 	}
 	__syncthreads();
+
+	i = threadIdx.x + blockIdx.x * blockDim.x;
+	while (i < *max_loc){
+	    country_avg[i] = data_avg[i] / country_count[i];
+	    i = i + offset;
+	}
 }
 
 __global__ void calculate_correlations(float result_data[], float correlations[]) {
@@ -399,23 +405,16 @@ int main() {
 	HANDLE_ERROR( cudaMemset( dev_country_count, 0, *max_loc*sizeof(int) ) );
 	HANDLE_ERROR( cudaMalloc((void**)&dev_locations, NUM_RECORDS*sizeof(int)) );
 	HANDLE_ERROR( cudaMemcpy(dev_locations, locations, NUM_RECORDS*sizeof(int), cudaMemcpyHostToDevice) );
+	HANDLE_ERROR( cudaMalloc((void**)&dev_country_avg, SIZE_F) );
+	HANDLE_ERROR( cudaMemset(dev_country_avg, 0, SIZE_F) );
+	HANDLE_ERROR( cudaMalloc((void**)&dev_max_loc, sizeof(int)) );
+	HANDLE_ERROR( cudaMemcpy(dev_max_loc, max_loc, sizeof(int), cudaMemcpyHostToDevice));
 	
-	display_data_averages<<<1, 1024>>>(dev_data_avg, dev_locations, dev_data, dev_country_count);
+	display_data_averages<<<1, 1024>>>(dev_data_avg, dev_locations, dev_data, dev_country_count, dev_country_avg, dev_max_loc);
 	
-	HANDLE_ERROR( cudaMemcpy(data_avg, dev_data_avg, *max_loc * sizeof(float), cudaMemcpyDeviceToHost) );
-	HANDLE_ERROR( cudaMemcpy(country_count, dev_country_count, *max_loc * sizeof(float), cudaMemcpyDeviceToHost) );
+	HANDLE_ERROR( cudaMemcpy(country_avg, dev_country_avg, *max_loc * sizeof(float), cudaMemcpyDeviceToHost) );
 	
-	for(int i =0; i < *max_loc; i++){
-		if(country_count[i] < 1) {
-			country_avg[i] = 0;
-			cout << "No entries seen for country " << i << "\n";
-		}
-		else {
-			country_avg[i] = data_avg[i] / country_count[i];
-			cout << "Cluster Average for Country " << i << ":   " << data_avg[i] / country_count[i] << "\n";	
-		}
-	}
-	
+
 	find_range(country_avg, centers, max_loc);
 	cout << "Original centers:";
 	for(int i = 0; i < NUM_CLUSTERS; i++){
@@ -429,10 +428,6 @@ int main() {
 	HANDLE_ERROR( cudaMemset( dev_clusters, 0, *max_loc * sizeof( int )) );
 	HANDLE_ERROR( cudaMalloc( (void**)&dev_change_clusters, sizeof(bool)));
 	HANDLE_ERROR( cudaMemset( dev_change_clusters, false, sizeof(bool)) );
-	HANDLE_ERROR( cudaMalloc((void**)&dev_max_loc, sizeof(int)) );
-	HANDLE_ERROR( cudaMemcpy(dev_max_loc, max_loc, sizeof(int), cudaMemcpyHostToDevice));
-	HANDLE_ERROR( cudaMalloc((void**)&dev_country_avg, SIZE_F) );
-	HANDLE_ERROR( cudaMemcpy(dev_country_avg, country_avg, SIZE_F, cudaMemcpyHostToDevice) );
 							  
 	compare<<<1,256>>>(dev_country_avg,dev_centers,dev_clusters,dev_change_clusters,dev_max_loc);
 
