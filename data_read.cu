@@ -4,7 +4,7 @@
 #include <vector>
 #include <bits/stdc++.h>
 #include "cuda.h"
-#include "../common/book.h"
+#include "book.h"
 
 using namespace std;
 
